@@ -10,7 +10,9 @@ def preprocess_image(
         image: Union[Image.Image, np.ndarray], 
         image_size: int = 256
         ) -> torch.Tensor:
-    """Preprocess image for VAE, returns normalized image tensor [3, H, W] in [-1, 1]"""
+    """
+    Preprocess image for VAE, returns normalized image tensor in [-1, 1]
+    """
 
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)

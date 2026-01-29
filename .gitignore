@@ -1,0 +1,4 @@
+__pycache__/
+data/cifar10/
+*.jpg
+*.png
