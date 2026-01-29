@@ -11,7 +11,7 @@ Feel free to add folders and files wherever you need for your implementations. T
 The actual dataset is large, so I have provided a CIFAR 10 wrapper for testing.
 
 ```python
-from data.dataset import DiffusionDataset
+from data import DiffusionDataset
 from torch.utils.data import DataLoader
 
 dataset = DiffusionDataset(testing=True, num_test_samples=10)
