@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.vae.VAE import AttentionBlock
+from models.vae import AttentionBlock
 from unet import TransformerBlock  # To Be Implemented
 
 

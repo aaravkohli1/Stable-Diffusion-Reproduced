@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from models.vae import VAE
 from data.dataset import DiffusionDataset
 
-# Parameters
+# Hyper parameters
 LEARNING_RATE = 1e-4
 BATCH_SIZE = 4
 EPOCHS = 10
