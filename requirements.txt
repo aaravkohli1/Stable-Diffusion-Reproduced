@@ -2,3 +2,6 @@ matplotlib
 torch
 torchvision
 pillow
+datasets
+pandas
+pyarrow
