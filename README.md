@@ -3,7 +3,7 @@
 
 <p align="center">
     <a href="#"><strong>Pretrained Weights</strong></a> · 
-    <a href="#"><strong>Project Website</strong></a> · 
+    <a href="https://aaravkohli1.github.io/Stable-Diffusion-Reproduced/"><strong>Project Website</strong></a> · 
     <a href="#"><strong>Technical Report</strong></a> 
 </p> 
 
