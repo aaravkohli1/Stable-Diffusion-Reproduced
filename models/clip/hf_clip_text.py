@@ -27,7 +27,7 @@ def main():
         ref = hf_model(**tokens).last_hidden_state  # [B, 77, D]
 
     # Run my model
-    wrapper = CLIPTextEncoder.from_pretrained_hf(model_name, max_length=77).to(device)
+wrapper = CLIPTextEncoder.from_pretrained_hf(model_name, max_length=77).to(device)
     wrapper.eval()
 
     with torch.no_grad():

@@ -4,7 +4,7 @@ import torch.nn as nn
 class MLP(nn.Module):
     def __init__(self, d_model: int, d_ff: int):
         super().__init__()
-        self.fc1 = nn.Linear(d_model, d_ff)
+        self.fc1 = nn.Linear(d_model, d_ff) # d_model = 512, d_ff = 2048
         self.act = nn.GELU()
         self.fc2 = nn.Linear(d_ff, d_model)
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Dict
 import torch
 import torch.nn as nn
 
@@ -10,8 +10,8 @@ from .clip_text_model import MyCLIPTextModel
 
 class CLIPTextEncoder(nn.Module):
     """
-    - from_pretrained_hf(): downloads HF weights, builds our architecture, loads those weights into it.
-    - encode(): runs our model forward and returns last_hidden_state [B, T, D].
+    - from_pretrained_hf(): downloads HF weights, builds our architecture, loads those weights into it
+    - encode(): runs our model forward and returns last_hidden_state
     """
 
     def __init__(
@@ -59,7 +59,6 @@ class CLIPTextEncoder(nn.Module):
         # Load HF weights into our model
         incompatible = my.load_state_dict(hf.state_dict(), strict=strict)
         if verbose:
-            # In newer PyTorch, load_state_dict returns IncompatibleKeys(missing_keys, unexpected_keys)
             try:
                 missing = incompatible.missing_keys
                 unexpected = incompatible.unexpected_keys
@@ -84,3 +83,32 @@ class CLIPTextEncoder(nn.Module):
 
         out = self.model(input_ids=input_ids, attention_mask=attention_mask)
         return out.last_hidden_state
+
+    def encode_conditioning(
+        self,
+        texts: Union[str, List[str]],
+        negative_texts: Union[None, str, List[str]] = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns conditional and unconditional embeddings for CFG.
+
+        Args:
+            texts: Prompt(s) for conditional generation.
+            negative_texts: Prompt(s) for unconditional/negative branch.
+                If None, empty strings are used.
+        """
+        if isinstance(texts, str):
+            texts = [texts]
+
+        batch_size = len(texts)
+
+        if negative_texts is None:
+            negative_texts = [""] * batch_size
+        elif isinstance(negative_texts, str):
+            negative_texts = [negative_texts] * batch_size
+        elif len(negative_texts) != batch_size:
+            raise ValueError("negative_texts must have the same batch size as texts.")
+
+        cond = self.encode(texts)
+        uncond = self.encode(negative_texts)
+        return cond, uncond

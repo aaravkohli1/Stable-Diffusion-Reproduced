@@ -111,7 +111,7 @@ class MyCLIPTextTransformer(nn.Module):
         self.final_layer_norm = nn.LayerNorm(hidden_size, eps=layer_norm_eps)
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None) -> torch.Tensor:
-        x = self.embeddings(input_ids)  # [B, T, D]
+        x = self.embeddings(input_ids)  
         for layer in self.encoder.layers:
             x = layer(x, attention_mask=attention_mask)
         x = self.final_layer_norm(x)
