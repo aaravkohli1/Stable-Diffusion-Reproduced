@@ -5,3 +5,5 @@ data/cifar10/
 laion_aesthetic_cache/
 .env
 .pytest_cache/
+.venv/
+venv/
