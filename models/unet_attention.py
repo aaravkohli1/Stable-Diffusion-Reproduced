@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class CrossAttention(nn.Module):
@@ -33,10 +34,7 @@ class CrossAttention(nn.Module):
         k = k.view(b, t, self.n_heads, self.head_dim).transpose(1, 2)
         v = v.view(b, t, self.n_heads, self.head_dim).transpose(1, 2)
 
-        attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-        attn = torch.softmax(attn, dim=-1)
-
-        out = torch.matmul(attn, v) 
+        out = F.scaled_dot_product_attention(q, k, v, scale=self.scale)
         out = out.transpose(1, 2).contiguous().view(b, n, c)
         return self.to_out(out)
 
