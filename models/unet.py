@@ -6,8 +6,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.vae import AttentionBlock
-from unet import TransformerBlock  # To Be Implemented
+# from models.vae import AttentionBlock
+# from unet import TransformerBlock  # To Be Implemented
+from models.unet_attention import SpatialTransformer
 
 
 class UNet(nn.Module):
@@ -23,6 +24,7 @@ class UNet(nn.Module):
                  d_cond: int = 768  # conditioning dimension
                  ):
         super().__init__()
+        self.channels = channels
 
         levels = len(channel_mults)
         channels_list = [channels * m for m in channel_mults]
@@ -46,19 +48,19 @@ class UNet(nn.Module):
                 channels = channels_list[i]
 
                 if i in attention_levels:
-                    layers.append(AttentionBlock(channels, n_heads, tf_layers, d_cond))
+                    layers.append(SpatialTransformer(channels, n_heads, tf_layers, d_cond))
 
                 self.down_blocks.append(EmbeddingHandler(*layers))
                 down_block_channels.append(channels)
 
-            if i == levels - 1:
+            if i != levels - 1: # changed == to != to downsample at every level except the last
                 self.down_blocks.append(EmbeddingHandler(DownSample(channels)))
                 down_block_channels.append(channels)
 
         # Middleblock
         self.middle_blocks = EmbeddingHandler(
             ResidualBlock(channels, d_ts_embeddings),
-            AttentionBlock(channels, n_heads, tf_layers, d_cond),
+            SpatialTransformer(channels, n_heads, tf_layers, d_cond),
             ResidualBlock(channels, d_ts_embeddings),
         )
 
@@ -71,11 +73,11 @@ class UNet(nn.Module):
                 channels = channels_list[i]
 
                 if i in attention_levels:
-                    layers.append(AttentionBlock(channels, n_heads, tf_layers, d_cond))
+                    layers.append(SpatialTransformer(channels, n_heads, tf_layers, d_cond))
 
                 if i != 0 and n == n_res:
                     layers.append(UpSample(channels))
-                self.output_blocks.append(EmbeddingHandler(*layers))
+                self.up_blocks.append(EmbeddingHandler(*layers))
 
         # Output layer
         self.out = nn.Sequential(
@@ -93,7 +95,7 @@ class UNet(nn.Module):
         args = time_steps[:, None].float() * freq[None]
         return torch.cat([torch.sin(args), torch.cos(args)], dim=-1)
 
-    def forward(self, x: torch.Tensor, time_steps: torch.Tensor, conditionings: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, time_steps: torch.Tensor, conditionings: torch.Tensor | None=None) -> torch.Tensor:
         block_outputs = []
 
         ts_embeddings = self.generate_ts_signature(time_steps)
@@ -103,7 +105,7 @@ class UNet(nn.Module):
             x = module(x, ts_embeddings, conditionings)
             block_outputs.append(x)
 
-        x = self.middle_blocks(x)
+        x = self.middle_blocks(x, ts_embeddings, conditionings)
 
         for module in self.up_blocks:
             x = torch.cat([x, block_outputs.pop()], dim=1)  # append residuals
@@ -156,9 +158,9 @@ class ResidualBlock(nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
         )
         self.out_layer = nn.Sequential(
-            TypedGroupNorm(32, in_channels),  # Forces in_channels to be divisible by 32...
+            TypedGroupNorm(32, out_channels),  # Forces in_channels to be divisible by 32...
             nn.SiLU(),
-            nn.Dropout(0.),  # As per reference implementation...
+            nn.Dropout(0.0),  # As per reference implementation...
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
         )
 
@@ -177,10 +179,10 @@ class TypedGroupNorm(nn.GroupNorm):  # as per reference implementation
 
 class EmbeddingHandler(nn.Sequential):  # as per reference implementation
     def forward(self, x: torch.Tensor, ts_emb: torch.Tensor, cond: torch.Tensor = None) -> torch.Tensor:
-        for layer in self.layers:
+        for layer in self:
             if isinstance(layer, ResidualBlock):
                 x = layer(x, ts_emb)
-            elif isinstance(layer, TransformerBlock):
+            elif isinstance(layer, SpatialTransformer):
                 x = layer(x, cond)
             else:
                 x = layer(x)

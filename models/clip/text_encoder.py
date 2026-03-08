@@ -70,7 +70,14 @@ class CLIPTextEncoder(nn.Module):
             print("unexpected keys:", unexpected)
 
         return cls(model=my, tokenizer=tokenizer, max_length=max_length)
+    
+    def freeze(self) -> "CLIPTextEncoder":
+        self.eval()
+        for p in self.parameters():
+            p.requires_grad = False
+        return self
 
+    @torch.no_grad()
     def encode(self, texts: Union[str, List[str]]) -> torch.Tensor:
         """
         Returns:
