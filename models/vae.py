@@ -1,18 +1,7 @@
-"""
-VAE (Variational Autoencoder) model for Stable Diffusion.
-Refactored from VAE.ipynb.
-"""
-
-import math
-import os
-import shutil
-
 import torch
 from torch import nn
 from torch.nn import functional as F
-
-from sklearn.model_selection import train_test_split
-
+import math
 
 class SelfAttention(nn.Module):
     def __init__(self, n_heads, embd_dim, in_proj_bias=True, out_proj_bias=True):
@@ -29,7 +18,7 @@ class SelfAttention(nn.Module):
         interim_shape = (batch_size, seq_len, self.n_heads, self.d_heads)
 
         # Compute Q, K, V from input x
-        q, k, v = self.in_proj(x).chunk(3, dim=-1)
+        q, k, v = self.in_proj(x).chunk(3, dim=-1)  
 
         # (batch_size, seq_len, d_embd) -> (batch_size, seq_len, n_heads, d_heads) for multi head attention
         q = q.view(interim_shape)
@@ -55,21 +44,20 @@ class SelfAttention(nn.Module):
         output = self.out_proj(output)
 
         return output
-
-
+    
 class AttentionBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
         # divides the channels into 32 groups and normalizes each group separately
         self.groupnorm = nn.GroupNorm(32, channels)
-        self.attention = SelfAttention(1, channels)  # 1 head should be enough as CNN does heavy lifting
+        self.attention = SelfAttention(1, channels) # 1 head should be enough as CNN does heavy lifting
 
     def forward(self, x):
         # x shape: (batch_size, channels, height, width)
         residual = x.clone()
 
         x = self.groupnorm(x)
-
+        
         n, c, h, w = x.shape
 
         x = x.view((n, c, h * w)).transpose(-1, -2)  # (batch_size, h*w, channels)
@@ -80,8 +68,7 @@ class AttentionBlock(nn.Module):
         x = x.transpose(-1, -2).view((n, c, h, w))  # (batch_size, channels, height, width)
 
         return x + residual
-
-
+    
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -91,7 +78,7 @@ class ResidualBlock(nn.Module):
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
 
         if in_channels != out_channels:
-            self.residual_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)  # kernel_size = 1 so linear change in channels to fit channel dimensions
+            self.residual_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1) # kernel_size = 1 so linear change in channels to fit channel dimensions
         else:
             self.residual_conv = nn.Identity()
 
@@ -107,14 +94,13 @@ class ResidualBlock(nn.Module):
         x = self.conv2(x)
 
         return x + self.residual_conv(residual)
-
-
+    
 class Encoder(nn.Sequential):
     def __init__(self):
         super().__init__(
-            nn.Conv2d(3, 128, kernel_size=3, padding=1),  # 3 channels -> 128 channels
+            nn.Conv2d(3, 128, kernel_size=3, padding=1), # 3 channels -> 128 channels
             ResidualBlock(128, 128),
-            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0),
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0), 
             ResidualBlock(128, 256),
             ResidualBlock(256, 256),
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=0),
@@ -131,15 +117,15 @@ class Encoder(nn.Sequential):
             nn.Conv2d(512, 8, kernel_size=3, padding=1),
             nn.Conv2d(8, 8, kernel_size=1, padding=0)
         )
-
+    
     def forward(self, x):
         # x shape: (batch_size, channels, height, width)
         for module in self:
             if isinstance(module, nn.Conv2d) and module.stride == (2, 2):
                 # Adds padding to right and bottom so (h, w) -> (h+1, w+1)
-                x = F.pad(x, (0, 1, 0, 1))  # (left, rigth, top, bottom) padding to handle odd dimensions
+                x = F.pad(x, (0, 1, 0, 1)) # (left, rigth, top, bottom) padding to handle odd dimensions
             x = module(x)
-
+        
         # split the 8 channels into 4 for mean and 4 for log_variance
         # take log_variance instead of variance to avoid negative variance values which are not valid
         mean, log_variance = torch.chunk(x, 2, dim=1)
@@ -154,9 +140,8 @@ class Encoder(nn.Sequential):
         # normalization constant... don't ask me where this came from...
         x *= 0.18215
 
-        return x
-
-
+        return x, mean, log_variance
+    
 class Decoder(nn.Sequential):
     def __init__(self):
         super().__init__(
@@ -185,7 +170,7 @@ class Decoder(nn.Sequential):
             nn.SiLU(),
             nn.Conv2d(128, 3, kernel_size=3, padding=1)
         )
-
+    
     def forward(self, x):
         # x shape: (batch_size, 4, h / 8, w / 8)
         x /= 0.18215
@@ -195,8 +180,7 @@ class Decoder(nn.Sequential):
 
         # (batch_size, 3, h, w)
         return x
-
-
+    
 class VAE(nn.Module):
     def __init__(self):
         super().__init__()
@@ -204,21 +188,7 @@ class VAE(nn.Module):
         self.decoder = Decoder()
 
     def forward(self, x):
-        encoded = self.encoder(x)
+        encoded, mean, log_variance = self.encoder(x)
         decoded = self.decoder(encoded)
-        return decoded, encoded
-
-
-if __name__ == "__main__":
-    # Training setup (from notebook Cell 7)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # hyperparameters
-    num_epochs = 100
-    learning_rate = 1e-4
-    beta = 0.00025  # KL divergence weight
-
-    # Example: create and test model
-    model = VAE().to(device)
-    print(f"VAE model created. Device: {device}")
-    print(f"Num parameters: {sum(p.numel() for p in model.parameters()):,}")
+        return decoded, encoded, mean, log_variance
+    
