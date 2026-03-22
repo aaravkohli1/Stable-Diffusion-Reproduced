@@ -34,12 +34,15 @@ class Diffuser:
 
         return sac_t * x_start + somac_t * noise
 
-    def compute_loss(self, model, x_start, timesteps, noise=None):
+    def compute_loss(self, model, x_start, timesteps, noise=None, conds=None):
         if noise is None:
             noise = torch.randn_like(x_start)
 
         x_noisy = self.forward(x_start, timesteps, noise)
-        preds = model(x_noisy, timesteps)
+        if conds is None:
+            preds = model(x_noisy, timesteps)
+        else:
+            preds = model(x_noisy, timesteps, conds)
 
         loss = F.l1_loss(noise, preds) # Potentially different loss function?
 
