@@ -2,8 +2,7 @@ __pycache__/
 data/cifar10/
 *.jpg
 *.png
-laion_aesthetic_cache/
 .env
 .pytest_cache/
-.venv/
-venv/
+axonometric/
+dalle3_cache/

@@ -87,7 +87,8 @@ class CLIPTextEncoder(nn.Module):
 
         tokens: Dict[str, torch.Tensor] = self.tokenizer(texts, device=device)
         input_ids = tokens["input_ids"]
-        attention_mask = tokens.get("attention_mask", None)
 
-        out = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        # Do NOT pass attention_mask — SD 1.x CLIP has use_attention_mask=False.
+        # Passing it changes PAD position embeddings, breaking UNet cross-attention.
+        out = self.model(input_ids=input_ids)
         return out.last_hidden_state

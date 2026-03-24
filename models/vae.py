@@ -100,7 +100,8 @@ class Encoder(nn.Sequential):
         super().__init__(
             nn.Conv2d(3, 128, kernel_size=3, padding=1), # 3 channels -> 128 channels
             ResidualBlock(128, 128),
-            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0), 
+            ResidualBlock(128, 128),
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0),
             ResidualBlock(128, 256),
             ResidualBlock(256, 256),
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=0),
@@ -151,6 +152,7 @@ class Decoder(nn.Sequential):
             ResidualBlock(512, 512),
             ResidualBlock(512, 512),
             ResidualBlock(512, 512),
+            ResidualBlock(512, 512),
             nn.Upsample(scale_factor=2),
             nn.Conv2d(512, 512, kernel_size=3, padding=1),
             ResidualBlock(512, 512),
@@ -186,9 +188,23 @@ class VAE(nn.Module):
         super().__init__()
         self.encoder = Encoder()
         self.decoder = Decoder()
+        self.post_quant_conv = nn.Conv2d(4, 4, kernel_size=1)
+        # Initialize as identity so it has no effect when training from scratch
+        with torch.no_grad():
+            self.post_quant_conv.weight.copy_(torch.eye(4).reshape(4, 4, 1, 1))
+            self.post_quant_conv.bias.zero_()
 
     def forward(self, x):
         encoded, mean, log_variance = self.encoder(x)
         decoded = self.decoder(encoded)
         return decoded, encoded, mean, log_variance
+
+    @torch.no_grad()
+    def decode(self, z):
+        """Decode latents (scaled by 0.18215) to images. Applies post_quant_conv."""
+        z = z / 0.18215
+        z = self.post_quant_conv(z)
+        for module in self.decoder:
+            z = module(z)
+        return z
     

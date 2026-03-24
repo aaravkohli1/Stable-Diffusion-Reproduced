@@ -5,23 +5,20 @@ from typing import List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-# from models.vae import AttentionBlock
-# from unet import TransformerBlock  # To Be Implemented
 from models.unet_attention import SpatialTransformer
 
 
 class UNet(nn.Module):
     def __init__(self,
-                 in_channels: int,  # input channel count
-                 out_channels: int,  # output channel count
-                 channels: int,  # operating channel count
-                 n_res: int,  # res blocks per level
-                 channel_mults: List[int],  # defines level count and channel expansion per layer
-                 attention_levels: List[int],  # levels for attention
-                 n_heads: int,  # attention block param
-                 tf_layers: int = 1,  # transformer layers
-                 d_cond: int = 768  # conditioning dimension
+                 in_channels: int,
+                 out_channels: int,
+                 channels: int,
+                 n_res: int,
+                 channel_mults: List[int],
+                 attention_levels: List[int],
+                 n_heads: int,
+                 tf_layers: int = 1,
+                 d_cond: int = 768 
                  ):
         super().__init__()
         self.channels = channels
@@ -29,7 +26,7 @@ class UNet(nn.Module):
         levels = len(channel_mults)
         channels_list = [channels * m for m in channel_mults]
 
-        d_ts_embeddings = 4 * channels  # increasing emb dim seems arbitrary and imp dependent
+        d_ts_embeddings = 4 * channels 
         self.ts_embedding = nn.Sequential(
             nn.Linear(channels, d_ts_embeddings),
             nn.SiLU(),
@@ -53,7 +50,7 @@ class UNet(nn.Module):
                 self.down_blocks.append(EmbeddingHandler(*layers))
                 down_block_channels.append(channels)
 
-            if i != levels - 1: # changed == to != to downsample at every level except the last
+            if i != levels - 1: # downsample at every level except the last
                 self.down_blocks.append(EmbeddingHandler(DownSample(channels)))
                 down_block_channels.append(channels)
 
@@ -93,7 +90,7 @@ class UNet(nn.Module):
         ).to(time_steps.device)
 
         args = time_steps[:, None].float() * freq[None]
-        return torch.cat([torch.sin(args), torch.cos(args)], dim=-1)
+        return torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
 
     def forward(self, x: torch.Tensor, time_steps: torch.Tensor, conditionings: torch.Tensor | None=None) -> torch.Tensor:
         block_outputs = []
@@ -152,15 +149,16 @@ class ResidualBlock(nn.Module):
             nn.Linear(d_ts_embeddings, out_channels)
         )
 
+        # We force in_channels to be divisible by 32
         self.in_layer = nn.Sequential(
-            TypedGroupNorm(32, in_channels),  # Forces in_channels to be divisible by 32...
+            TypedGroupNorm(32, in_channels),  
             nn.SiLU(),
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
         )
         self.out_layer = nn.Sequential(
-            TypedGroupNorm(32, out_channels),  # Forces in_channels to be divisible by 32...
+            TypedGroupNorm(32, out_channels),
             nn.SiLU(),
-            nn.Dropout(0.0),  # As per reference implementation...
+            nn.Dropout(0.0),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
         )
 
@@ -172,12 +170,12 @@ class ResidualBlock(nn.Module):
         return self.skip(x) + h
 
 
-class TypedGroupNorm(nn.GroupNorm):  # as per reference implementation
+class TypedGroupNorm(nn.GroupNorm):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return super().forward(x.float()).type(x.dtype)
 
 
-class EmbeddingHandler(nn.Sequential):  # as per reference implementation
+class EmbeddingHandler(nn.Sequential):
     def forward(self, x: torch.Tensor, ts_emb: torch.Tensor, cond: torch.Tensor = None) -> torch.Tensor:
         for layer in self:
             if isinstance(layer, ResidualBlock):

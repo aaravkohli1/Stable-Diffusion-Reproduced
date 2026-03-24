@@ -39,18 +39,25 @@ class CrossAttention(nn.Module):
         return self.to_out(out)
 
 
+class GEGLU(nn.Module):
+    def __init__(self, dim_in: int, dim_out: int):
+        super().__init__()
+        self.proj = nn.Linear(dim_in, dim_out * 2)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = self.proj(x).chunk(2, dim=-1)
+        return x * F.gelu(gate)
+
+
 class FeedForward(nn.Module):
     def __init__(self, dim: int, mult: int = 4):
         super().__init__()
         hidden = dim * mult
-        self.net = nn.Sequential(
-            nn.Linear(dim, hidden),
-            nn.GELU(),
-            nn.Linear(hidden, dim),
-        )
+        self.geglu = GEGLU(dim, hidden)
+        self.linear = nn.Linear(hidden, dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
+        return self.linear(self.geglu(x))
 
 
 class BasicTransformerBlock(nn.Module):

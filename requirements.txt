@@ -5,3 +5,4 @@ pillow
 datasets
 pandas
 pyarrow
+scipy
