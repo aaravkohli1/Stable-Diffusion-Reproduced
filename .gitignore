@@ -2,3 +2,7 @@ __pycache__/
 data/cifar10/
 *.jpg
 *.png
+.env
+.pytest_cache/
+axonometric/
+dalle3_cache/

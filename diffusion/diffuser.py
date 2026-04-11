@@ -1,16 +1,21 @@
 """Image Noising Utilities"""
 
+from __future__ import annotations
+
+from typing import Callable, Optional
+
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 
-def extract(a, t, x_shape):
+def extract(a: torch.Tensor, t: torch.Tensor, x_shape: tuple) -> torch.Tensor:
     batch_size = t.shape[0]
     out = a.gather(-1, t.cpu())
     return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
 
 class Diffuser:
-    def __init__(self, timesteps, schedule):
+    def __init__(self, timesteps: int, schedule: Callable[[int], torch.Tensor]) -> None:
         self.timesteps = timesteps
         self.schedule = schedule
 
@@ -25,7 +30,12 @@ class Diffuser:
 
         self.posterior_variance = self.betas * (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
 
-    def forward(self, x_start, timesteps, noise=None):
+    def forward(
+        self,
+        x_start: torch.Tensor,
+        timesteps: torch.Tensor,
+        noise: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         if noise is None:
             noise = torch.randn_like(x_start)
 
@@ -34,7 +44,13 @@ class Diffuser:
 
         return sac_t * x_start + somac_t * noise
 
-    def compute_loss(self, model, x_start, timesteps, noise=None):
+    def compute_loss(
+        self,
+        model: nn.Module,
+        x_start: torch.Tensor,
+        timesteps: torch.Tensor,
+        noise: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         if noise is None:
             noise = torch.randn_like(x_start)
 

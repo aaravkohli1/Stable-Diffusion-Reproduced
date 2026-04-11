@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stable Diffusion - UTMIST</title>
+    <link rel="icon" type="image/svg" href="assets/utmist_logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="loader" aria-hidden="true">
+      <span class="loader-wordmark">UTMIST / Stable Diffusion</span>
+    </div>
+    <div class="viewport-frame">
+      <nav>
+        <a class="nav-logo" href="index.html">UTMIST / Stable Diffusion</a>
+        <ul class="nav-links">
+          <li><a href="#about">About</a></li>
+          <li><a href="#results">Results</a></li>
+          <li><a href="#team">Team</a></li>
+          <li><a href="research.html">Research & Insights</a></li>
+          <li>
+            <a
+              href="https://github.com/aaravkohli1/Stable-Diffusion-Reproduced"
+              target="_blank"
+              >GitHub ↗</a
+            >
+          </li>
+        </ul>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-content">
+          <p class="hero-tag">UTMIST · 2025–2026</p>
+          <h1>Stable Diffusion,<br />Reproduced.</h1>
+          <p>
+            A from-scratch reimplementation of Stable Diffusion with systematic
+            ablation studies, performance and efficiency benchmarking, and fine
+            tuning experiments by the University of Toronto Machine Intelligence
+            Student Team.
+          </p>
+          <div>
+            <a
+              href="https://github.com/aaravkohli1/Stable-Diffusion-Reproduced"
+              target="_blank"
+              class="btn"
+              >View on GitHub ↗</a
+            >
+            <a href="#about" class="btn btn-outline">Learn More</a>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="hero-preview-grid">
+            <div class="preview-cell">
+              <img src="./assets/desert.png" alt="An image of a desert" />
+            </div>
+            <div class="preview-cell">
+              <img src="./assets/dog.png" alt="An image of a desert" />
+            </div>
+            <div class="preview-cell"></div>
+            <div class="preview-cell"></div>
+            <div class="preview-cell"></div>
+            <div class="preview-cell"></div>
+            <div class="preview-cell"></div>
+            <div class="preview-cell"></div>
+            <div class="preview-cell"></div>
+          </div>
+          <p class="hero-visual-label">
+            generated samples · training in progress
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="about">
+      <p class="section-label">About</p>
+      <h2>What we're working on.</h2>
+      <div class="about-body">
+        <p>
+          Diffusion models have emerged as a popular model for image and video
+          synthesis due to its to model complex, high-dimensional data through
+          an iterative denoising process.
+        </p>
+        <p>
+          We are systematically recreating Stable Diffusion from the ground up,
+          and running targeted ablation experiments to identify which
+          architectural components, training choices, and conditioning
+          mechanisms most strongly impact performance, stability, and generation
+          quality.
+        </p>
+        <p>
+          Building on this, we will then fine-tune our model on axonometric data
+          to test whether controlled training can encode stronger spatial
+          reasoning, consistent perspective, and improve geometric coherence in
+          generated scenes. Coupled with the ablation experiments, we aim to
+          gain a deep understanding of diffusion architectures and provide
+          insights into building state of the art models.
+        </p>
+      </div>
+    </div>
+
+    <div class="section" id="results">
+      <p class="section-label">Key Insights</p>
+      <h2>Top findings.</h2>
+      <p class="section-sub">
+        Our three most significant results from implementation and ablation.
+        Updated as experiments complete.
+      </p>
+      <div class="findings-grid">
+        <div class="finding-card">
+          <div class="finding-label">—</div>
+          <div class="finding-title">—</div>
+          <div class="finding-body">—</div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">—</div>
+          <div class="finding-title">—</div>
+          <div class="finding-body">—</div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">—</div>
+          <div class="finding-title">—</div>
+          <div class="finding-body">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="team">
+      <p class="section-label">People</p>
+      <h2>The Team.</h2>
+      <div class="team-grid">
+        <div class="team-card">
+          <div class="team-name">Aarav Kohli</div>
+          <div class="team-role">Project Lead</div>
+        </div>
+        <div class="team-card">
+          <div class="team-name">Keishi Suzuki</div>
+          <div class="team-role">Researcher</div>
+        </div>
+        <div class="team-card">
+          <div class="team-name">Kian Benner</div>
+          <div class="team-role">Researcher</div>
+        </div>
+        <div class="team-card">
+          <div class="team-name">Grace Lin</div>
+          <div class="team-role">Researcher</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <span class="footer-left"
+        >2026 UTMIST · <a href="license.html">MIT License</a></span
+      >
+      <div class="footer-right">
+        <a
+          href="https://github.com/aaravkohli1/Stable-Diffusion-Reproduced"
+          target="_blank"
+          >GitHub</a
+        >
+        <a href="https://utmist.ca" target="_blank">UTMIST</a>
+      </div>
+    </footer>
+  </body>
+</html>
