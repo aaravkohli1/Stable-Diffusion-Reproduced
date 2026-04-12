@@ -1,33 +1,15 @@
 #!/usr/bin/env bash
-# ==========================================================================
-#  One-shot SD1.4 training on a vast.ai H100 80GB.
-#
-#  Combines environment setup, latent caching, and UNet training into a
-#  single script with a wall-clock budget guard so you don't overspend.
-#
-#  Usage (on the remote box):
-#    git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced.git
-#    cd Stable-Diffusion-Reproduced
-#    tmux new -s train
-#    bash runs/train.sh            # walks away
-#    # Ctrl-b d to detach, `tmux a -t train` to reattach
-#
-#  Budget math (H100 80GB @ ~$1.50/hr on vast.ai):
-#    $80 ÷ $1.50/hr ≈ 53 hours total wall-clock.
-#    ~1 hr  setup + latent caching
-#    ~50 hr UNet training
-#    At ~0.5s/optimizer-step (bf16 + torch.compile), 50 hr ≈ 160k steps.
-#    Adjust MAX_HOURS if your $/hr rate differs.
-# ==========================================================================
+
 set -euo pipefail
 
-# --- Budget & knobs ------------------------------------------------------
-MAX_HOURS=${MAX_HOURS:-50}            # wall-clock cap for the training phase
-HOURLY_RATE=${HOURLY_RATE:-1.50}      # $/hr — H100 on vast.ai
-SHARDS=${SHARDS:-69}                  # 69 shards available (~1M total)
-MAX_LATENTS=${MAX_LATENTS:-200000}    # how many samples to cache
+
+MAX_HOURS=${MAX_HOURS:-75}      
+HOURLY_RATE=${HOURLY_RATE:-1.00}     
+NUM_GPUS=${NUM_GPUS:-$(nvidia-smi -L 2>/dev/null | wc -l)}  # auto-detect GPU count
+SHARDS=${SHARDS:-69} 
+MAX_LATENTS=${MAX_LATENTS:-200000} 
 IMAGE_SIZE=${IMAGE_SIZE:-512}
-LATENT_BS=${LATENT_BS:-32}            # VAE+CLIP forward batch size
+LATENT_BS=${LATENT_BS:-32} 
 CONFIG=${CONFIG:-configs/standard.yaml}
 # -------------------------------------------------------------------------
 
@@ -42,7 +24,6 @@ elapsed_hours() {
   awk "BEGIN{printf \"%.1f\", ($(date +%s) - $START_TIME) / 3600}"
 }
 
-# ==================== PHASE 0: Environment setup =========================
 echo ""
 echo "[0/3] Environment setup ($(elapsed_hours)h elapsed)"
 echo "----------------------------------------------------------------"
@@ -61,14 +42,15 @@ python -m pip install -r requirements.txt -q
 python - <<'PY'
 import torch
 assert torch.cuda.is_available(), "CUDA not visible — check your instance"
-props = torch.cuda.get_device_properties(0)
-print(f"  CUDA OK: {props.name}, {props.total_mem / 1e9:.0f} GB, bf16={torch.cuda.is_bf16_supported()}")
+for i in range(torch.cuda.device_count()):
+    props = torch.cuda.get_device_properties(i)
+    print(f"  GPU {i}: {props.name}, {props.total_mem / 1e9:.0f} GB")
+print(f"  bf16={torch.cuda.is_bf16_supported()}, GPUs={torch.cuda.device_count()}")
 PY
 
 # Dirs
 mkdir -p scripts/checkpoints scripts/latents scripts/unet_checkpoints
 
-# ==================== PHASE 1: Import pretrained VAE =====================
 echo ""
 echo "[1/3] Importing pretrained VAE ($(elapsed_hours)h elapsed)"
 echo "----------------------------------------------------------------"
@@ -79,7 +61,6 @@ else
   python scripts/import_vae.py
 fi
 
-# ==================== PHASE 2: Cache latents =============================
 echo ""
 echo "[2/3] Caching latents from $SHARDS shards ($(elapsed_hours)h elapsed)"
 echo "----------------------------------------------------------------"
@@ -95,9 +76,8 @@ else
     --out-dir scripts/latents
 fi
 
-# ==================== PHASE 3: Train UNet ================================
 echo ""
-echo "[3/3] Training UNet — max ${MAX_HOURS}h ($(elapsed_hours)h elapsed so far)"
+echo "[3/3] Go!"
 echo "----------------------------------------------------------------"
 
 # Compute remaining seconds for the training timeout
@@ -112,15 +92,22 @@ fi
 
 echo "  Training budget: $(awk "BEGIN{printf \"%.1f\", $REMAINING_S/3600}")h remaining"
 echo "  Config: $CONFIG"
+echo "  GPUs: $NUM_GPUS"
 echo ""
 
-# timeout sends SIGTERM, giving the training loop a chance to save a final
-# checkpoint. The 30s --kill-after is a hard stop if it doesn't exit cleanly.
+# Use torchrun for multi-GPU, plain python for single-GPU.
+if [ "$NUM_GPUS" -gt 1 ]; then
+  TRAIN_CMD="torchrun --nproc_per_node=$NUM_GPUS scripts/train_unet.py"
+else
+  TRAIN_CMD="python scripts/train_unet.py"
+fi
+
+
 timeout --signal=SIGINT --kill-after=30 "${REMAINING_S}s" \
-  python scripts/train_unet.py "$CONFIG" --resume latest \
+  $TRAIN_CMD "$CONFIG" --resume latest \
   || EXIT_CODE=$?
 
-# timeout returns 124 on expiry — that's expected, not an error
+
 if [ "${EXIT_CODE:-0}" -eq 124 ]; then
   echo ""
   echo "Budget reached (${MAX_HOURS}h). Training stopped gracefully."
@@ -130,7 +117,7 @@ elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
   exit "${EXIT_CODE}"
 fi
 
-# ==================== Done ===============================================
+# Done! :)
 TOTAL_H=$(elapsed_hours)
 COST=$(awk "BEGIN{printf \"%.2f\", $TOTAL_H * $HOURLY_RATE}")
 echo ""

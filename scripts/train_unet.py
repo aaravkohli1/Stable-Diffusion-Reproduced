@@ -21,8 +21,11 @@ from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import torch
+import torch.distributed as dist
 import yaml
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.distributed import DistributedSampler
 
 from diffusion import (
     Diffuser,
@@ -127,8 +130,24 @@ def main() -> None:
     with open(args.config) as f:
         config = yaml.safe_load(f)
 
-    device = get_device()
-    print(f"Using device: {device}")
+    # --- Distributed setup --------------------------------------------------
+    use_ddp = 'RANK' in os.environ  # torchrun sets RANK, LOCAL_RANK, WORLD_SIZE
+    if use_ddp:
+        dist.init_process_group(backend='nccl')
+        local_rank = int(os.environ['LOCAL_RANK'])
+        rank = int(os.environ['RANK'])
+        world_size = int(os.environ['WORLD_SIZE'])
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f'cuda:{local_rank}')
+    else:
+        rank = 0
+        world_size = 1
+        device = get_device()
+
+    is_main = rank == 0  # only rank 0 prints and saves
+
+    if is_main:
+        print(f"Using device: {device}" + (f" ({world_size} GPUs)" if use_ddp else ""))
 
     mcfg = config['model']
     tcfg = config['training']
@@ -146,27 +165,36 @@ def main() -> None:
     ).to(device)
 
     n_params = sum(p.numel() for p in base_model.parameters())
-    print(f"UNet params: {n_params/1e6:.1f}M")
+    if is_main:
+        print(f"UNet params: {n_params/1e6:.1f}M")
 
     # torch.compile wraps the module — keep `base_model` as the canonical handle
     # for state-dict load/save and EMA, and use `model` for the training calls.
     compile_mode = tcfg.get('compile')  # None | "default" | "reduce-overhead" | "max-autotune"
     if compile_mode and device.type == 'cuda':
-        print(f"torch.compile mode={compile_mode}")
+        if is_main:
+            print(f"torch.compile mode={compile_mode}")
         model = torch.compile(base_model, mode=compile_mode)
     else:
         model = base_model
 
+    # Wrap with DDP after compile
+    if use_ddp:
+        model = DDP(model, device_ids=[local_rank])
+
     dataset = CacheDataset(config['latents_path'])
+    sampler = DistributedSampler(dataset, shuffle=True) if use_ddp else None
     dataloader = DataLoader(
         dataset,
         batch_size=tcfg['batch_size'],
-        shuffle=True,
+        shuffle=(sampler is None),
+        sampler=sampler,
         num_workers=tcfg.get('num_workers', 0),
         pin_memory=(device.type == 'cuda'),
         drop_last=True,
     )
-    print(f"Dataset: {len(dataset)} cached samples, {len(dataloader)} batches/epoch")
+    if is_main:
+        print(f"Dataset: {len(dataset)} cached samples, {len(dataloader)} batches/epoch")
 
     # Optimizer + EMA must reference the underlying parameters, not the
     # compiled wrapper, so they survive recompiles cleanly.
@@ -193,7 +221,8 @@ def main() -> None:
     use_amp = precision != 'fp32' and device.type == 'cuda'
     # GradScaler is only needed for fp16; bf16 has the dynamic range to skip it.
     scaler = torch.amp.GradScaler('cuda', enabled=(precision == 'fp16'))
-    print(f"Precision: {precision} (autocast={use_amp}, grad_scaler={scaler.is_enabled()})")
+    if is_main:
+        print(f"Precision: {precision} (autocast={use_amp}, grad_scaler={scaler.is_enabled()})")
 
     grad_accum = max(1, tcfg.get('grad_accum_steps', 1))
     grad_clip = tcfg.get('grad_clip', 1.0)
@@ -206,8 +235,8 @@ def main() -> None:
 
     use_ema = tcfg.get('ema', True)
     ema_device = tcfg.get('ema_device')  # default: same device as model
-    # EMA must follow base_model, not the torch.compile wrapper.
-    ema = EMA(base_model, decay=tcfg.get('ema_decay', 0.9999), device=ema_device) if use_ema else None
+    # EMA only on rank 0 — no need to duplicate across GPUs.
+    ema = EMA(base_model, decay=tcfg.get('ema_decay', 0.9999), device=ema_device) if (use_ema and is_main) else None
 
     checkpoints_dir = Path(__file__).resolve().parent / 'unet_checkpoints'
     checkpoints_dir.mkdir(parents=True, exist_ok=True)
@@ -231,7 +260,8 @@ def main() -> None:
         if args.resume == 'latest':
             resume_path = find_latest_checkpoint(checkpoints_dir)
             if resume_path is None:
-                print(f"--resume latest: no checkpoints in {checkpoints_dir}, starting fresh")
+                if is_main:
+                    print(f"--resume latest: no checkpoints in {checkpoints_dir}, starting fresh")
         else:
             resume_path = Path(args.resume)
         if resume_path is not None and resume_path.exists():
@@ -251,9 +281,12 @@ def main() -> None:
             resumed_lr = tcfg['lr'] * lr_lambda(global_step - 1, warmup_steps)
             for pg in optimizer.param_groups:
                 pg['lr'] = resumed_lr
-            print(f"Resumed from {resume_path} at step {global_step} (lr={resumed_lr:.2e})")
+            if is_main:
+                print(f"Resumed from {resume_path} at step {global_step} (lr={resumed_lr:.2e})")
 
     for epoch in range(tcfg['epochs']):
+        if sampler is not None:
+            sampler.set_epoch(epoch)
         for micro_step, batch in enumerate(dataloader):
             latents = batch['latents'].to(device, non_blocking=True)
             conds = batch['conds'].to(device, non_blocking=True)
@@ -296,14 +329,14 @@ def main() -> None:
 
                 global_step += 1
 
-                if global_step % log_every == 0:
+                if is_main and global_step % log_every == 0:
                     cur_lr = scheduler.get_last_lr()[0]
                     print(
                         f"epoch {epoch+1} step {global_step} "
                         f"loss {loss.item()*grad_accum:.4f} lr {cur_lr:.2e}"
                     )
 
-                if global_step % save_every == 0:
+                if is_main and global_step % save_every == 0:
                     ckpt = {
                         'step': global_step,
                         'model': base_model.state_dict(),
@@ -322,12 +355,16 @@ def main() -> None:
         if global_step >= max_steps or _stop_requested:
             break
 
-    final = {'step': global_step, 'model': base_model.state_dict()}
-    if ema is not None:
-        final['ema'] = ema.shadow.state_dict()
-    final_path = checkpoints_dir / "unet_final.pt"
-    torch.save(final, final_path)
-    print(f"Final model saved: {final_path}")
+    if is_main:
+        final = {'step': global_step, 'model': base_model.state_dict()}
+        if ema is not None:
+            final['ema'] = ema.shadow.state_dict()
+        final_path = checkpoints_dir / "unet_final.pt"
+        torch.save(final, final_path)
+        print(f"Final model saved: {final_path}")
+
+    if use_ddp:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":
