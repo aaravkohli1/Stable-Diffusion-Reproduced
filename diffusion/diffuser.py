@@ -50,14 +50,15 @@ class Diffuser:
         x_start: torch.Tensor,
         timesteps: torch.Tensor,
         noise: Optional[torch.Tensor] = None,
+        conds: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         if noise is None:
             noise = torch.randn_like(x_start)
 
         x_noisy = self.forward(x_start, timesteps, noise)
-        preds = model(x_noisy, timesteps)
+        preds = model(x_noisy, timesteps, conds)
 
-        loss = F.l1_loss(noise, preds) # Potentially different loss function?
+        loss = F.mse_loss(noise, preds)
 
         return loss
 

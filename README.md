@@ -94,7 +94,7 @@ Scripts for precomputing key values, training the VAE, and training the U-Net ca
 git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced
 cd Stable-Diffusion-Reproduced
 pip install -r requirements.txt
-python runs/compute_latents.py
+python scripts/compute_latents.py
 ```
 
 ### Train VAE
@@ -103,7 +103,7 @@ python runs/compute_latents.py
 git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced
 cd Stable-Diffusion-Reproduced
 pip install -r requirements.txt
-python runs/train_vae.py
+python scripts/train_vae.py
 ```
 ### Train U-Net
 
@@ -111,7 +111,7 @@ python runs/train_vae.py
 git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced
 cd Stable-Diffusion-Reproduced
 pip install -r requirements.txt
-python runs/train_unet.py
+python scripts/train_unet.py
 ```
 
 

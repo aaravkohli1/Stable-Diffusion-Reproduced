@@ -6,3 +6,6 @@ datasets
 pandas
 pyarrow
 scipy
+pyyaml
+transformers
+diffusers

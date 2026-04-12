@@ -1,0 +1,39 @@
+# Tiny smoke-test config: small UNet, CIFAR-derived latents at 128px
+# (latents are 16x16x4). Useful to confirm the pipeline trains end-to-end
+
+latents_path: scripts/latents_smoke
+
+model:
+  in_channels: 4
+  out_channels: 4
+  channels: 64
+  n_res: 1
+  channel_mults: [1, 2, 2]
+  attention_levels: [0, 1]
+  n_heads: 4
+  tf_layers: 1
+  d_cond: 512
+
+training:
+  epochs: 5
+  max_steps: 200
+  batch_size: 4
+  grad_accum_steps: 1
+  num_workers: 0
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+  weight_decay: 1.0e-2
+  warmup_steps: 50
+  grad_clip: 1.0
+
+  precision: bf16
+  ema: true
+  ema_decay: 0.999
+
+  cfg_dropout: 0.1
+
+  diffusion_steps: 1000
+  beta_schedule: scaled_linear
+
+  log_interval: 10
+  save_interval: 100

@@ -1,3 +1,3 @@
-from .dataset import TrainingData
+from .dataset import TrainingData, DiffusionDataset, AxonometricDataset
 
-__all__ = ['TrainingData']
+__all__ = ['TrainingData', 'DiffusionDataset', 'AxonometricDataset']

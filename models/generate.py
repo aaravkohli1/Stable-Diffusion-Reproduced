@@ -63,7 +63,7 @@ def load_from_pretrained(repo_id, vae, unet, device):
         sys.exit(1)
 
     print(f'Downloading {repo_id} from HF')
-    pipe = StableDiffusionPipeline.from_pretrained(repo_id, torch_dtype=torch.float32)
+    pipe = StableDiffusionPipeline.from_pretrained(repo_id, torch_dtype=torch.float16)
 
     print('Converting VAE weights...')
     vae_sd = convert_vae_state_dict(pipe.vae.state_dict())

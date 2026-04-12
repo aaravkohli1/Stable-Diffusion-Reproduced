@@ -1,0 +1,54 @@
+# LoRA fine-tuning config for axonometric / isometric imagery.
+#
+# Loads CompVis SD1.4 pretrained weights, injects LoRA adapters into
+# UNet cross-attention layers, and trains only those (~1-2M params).
+#
+# Much cheaper than full fine-tuning: fits on a single GPU with 24+ GB,
+# and converges in a few thousand steps.
+
+pretrained: CompVis/stable-diffusion-v1-4
+
+# Path or config for AxonometricDataset (not yet implemented)
+data_root: null
+
+model:
+  in_channels: 4
+  out_channels: 4
+  channels: 320
+  n_res: 2
+  channel_mults: [1, 2, 4, 4]
+  attention_levels: [0, 1, 2]
+  n_heads: 8
+  tf_layers: 1
+  d_cond: 768             # SD1.4 uses ViT-L/14 (hidden=768)
+
+lora:
+  rank: 4                 # low-rank dimension — 4 is a good starting point
+  alpha: 1.0              # scaling factor (alpha/rank applied to adapter output)
+  targets:                # which attention projections to adapt
+    - to_q
+    - to_k
+    - to_v
+    - to_out
+
+training:
+  epochs: 1000            # effectively unbounded; max_steps is the real stop
+  max_steps: 5000         # LoRA converges fast — 2k-5k is typical
+  image_size: 512
+  batch_size: 4           # small dataset, small batch
+  grad_accum_steps: 4     # effective batch size 16
+  num_workers: 4
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+  weight_decay: 1.0e-2
+  warmup_steps: 100
+  grad_clip: 1.0
+
+  precision: bf16
+  cfg_dropout: 0.1
+
+  diffusion_steps: 1000
+  beta_schedule: scaled_linear
+
+  log_interval: 10
+  save_interval: 500
