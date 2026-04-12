@@ -12,6 +12,11 @@
 # ==========================================================================
 set -euo pipefail
 
+# Ensure 'python' exists — some images only ship python3
+if ! command -v python &>/dev/null && command -v python3 &>/dev/null; then
+  ln -sf "$(which python3)" /usr/local/bin/python
+fi
+
 CONFIG=${CONFIG:-configs/finetune.yaml}
 MAX_HOURS=${MAX_HOURS:-4}
 HOURLY_RATE=${HOURLY_RATE:-1.50}
@@ -37,8 +42,8 @@ echo "GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/d
 apt-get update -qq 2>/dev/null
 apt-get install -y --no-install-recommends git tmux >/dev/null 2>&1 || true
 
-python -m pip install --upgrade pip -q 2>/dev/null
-python -m pip install -r requirements.txt -q 2>/dev/null
+python -m pip install --upgrade pip -q --break-system-packages 2>/dev/null || true
+python -m pip install -r requirements.txt -q --break-system-packages 2>/dev/null
 
 python - <<'PY'
 import torch

@@ -2,9 +2,13 @@
 
 set -euo pipefail
 
+# Ensure 'python' exists — some images only ship python3
+if ! command -v python &>/dev/null && command -v python3 &>/dev/null; then
+  ln -sf "$(which python3)" /usr/local/bin/python
+fi
 
-MAX_HOURS=${MAX_HOURS:-75}      
-HOURLY_RATE=${HOURLY_RATE:-1.00}     
+MAX_HOURS=${MAX_HOURS:-75}
+HOURLY_RATE=${HOURLY_RATE:-1.00}
 NUM_GPUS=${NUM_GPUS:-$(nvidia-smi -L 2>/dev/null | wc -l)}  # auto-detect GPU count
 SHARDS=${SHARDS:-69} 
 MAX_LATENTS=${MAX_LATENTS:-200000} 
@@ -34,9 +38,9 @@ echo "GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/d
 apt-get update -qq
 apt-get install -y --no-install-recommends git tmux htop wget ca-certificates >/dev/null 2>&1
 
-# Python deps
-python -m pip install --upgrade pip -q
-python -m pip install -r requirements.txt -q
+# Python deps (--break-system-packages for debian/ubuntu managed envs)
+python -m pip install --upgrade pip -q --break-system-packages 2>/dev/null || true
+python -m pip install -r requirements.txt -q --break-system-packages
 
 # Confirm CUDA
 python - <<'PY'
