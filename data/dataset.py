@@ -18,7 +18,7 @@ class TrainingData(IterableDataset):
     SD 1.x training resolution.
     """
 
-    BASE_URL = 'https://huggingface.co/datasets/ProGamerGov/synthetic-dataset-1m-high-quality-captions/resolve/main/data/data-{i:06d}.tar'
+    BASE_URL = 'https://huggingface.co/datasets/ProGamerGov/synthetic-dataset-1m-dalle3-high-quality-captions/resolve/main/data/data-{i:06d}.tar'
 
     def __init__(
         self,
