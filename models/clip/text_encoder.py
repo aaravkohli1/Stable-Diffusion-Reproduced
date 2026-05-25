@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from .tokenizer import CLIPTokenizerWrapper
-from .clip_text_model import MyCLIPTextModel
+from .clip_text_model import CLIPTextModel
 
 
 class CLIPTextEncoder(nn.Module):
@@ -35,17 +35,17 @@ class CLIPTextEncoder(nn.Module):
         verbose: bool = False,
     ) -> "CLIPTextEncoder":
         
-        from transformers import CLIPTextModel
+        from transformers import CLIPTextModel as HFCLIPTextModel
 
         tokenizer = CLIPTokenizerWrapper.from_pretrained(model_name, max_length=max_length)
 
-        # Load HF model 
-        hf = CLIPTextModel.from_pretrained(model_name)
+        # Load HF model
+        hf = HFCLIPTextModel.from_pretrained(model_name)
         hf.eval()
         cfg = hf.config
 
         # Build our model using HF config
-        my = MyCLIPTextModel(
+        my = CLIPTextModel(
             vocab_size=cfg.vocab_size,                          
             hidden_size=cfg.hidden_size,                      
             intermediate_size=cfg.intermediate_size,          

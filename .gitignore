@@ -2,7 +2,12 @@ __pycache__/
 data/cifar10/
 *.jpg
 *.png
+!docs/assets/*.png
+!docs/assets/*.jpg
 .env
 .pytest_cache/
 axonometric/
 dalle3_cache/
+runs/latent_cache/
+runs/*_checkpoints/
+runs/checkpoints/

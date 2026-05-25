@@ -90,7 +90,7 @@ class CLIPTextEmbeddings(nn.Module):
         pos_ids = torch.arange(T, device=input_ids.device).unsqueeze(0).expand(B, T)
         return self.token_embedding(input_ids) + self.position_embedding(pos_ids)
 
-class MyCLIPTextTransformer(nn.Module):
+class CLIPTextTransformer(nn.Module):
     def __init__(
         self,
         vocab_size: int = 49408,
@@ -117,10 +117,10 @@ class MyCLIPTextTransformer(nn.Module):
         x = self.final_layer_norm(x)
         return x  # last_hidden_state [B, T, D]
 
-class MyCLIPTextModel(nn.Module):
+class CLIPTextModel(nn.Module):
     def __init__(self, **kwargs):
         super().__init__()
-        self.text_model = MyCLIPTextTransformer(**kwargs)
+        self.text_model = CLIPTextTransformer(**kwargs)
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None):
         last_hidden_state = self.text_model(input_ids=input_ids, attention_mask=attention_mask)

@@ -83,11 +83,11 @@ def load_from_pretrained(repo_id, vae, unet, device):
 
     print('Loading CLIP text encoder')
     from models.clip.tokenizer import CLIPTokenizerWrapper
-    from models.clip.clip_text_model import MyCLIPTextModel
+    from models.clip.clip_text_model import CLIPTextModel
 
     hf_te = pipe.text_encoder
     cfg = hf_te.config
-    my_clip = MyCLIPTextModel(
+    my_clip = CLIPTextModel(
         vocab_size=cfg.vocab_size,
         hidden_size=cfg.hidden_size,
         intermediate_size=cfg.intermediate_size,
@@ -96,7 +96,12 @@ def load_from_pretrained(repo_id, vae, unet, device):
         max_position_embeddings=cfg.max_position_embeddings,
         layer_norm_eps=cfg.layer_norm_eps,
     )
-    my_clip.load_state_dict(hf_te.state_dict(), strict=True)
+    hf_sd = hf_te.state_dict()
+    # Some diffusers/transformers versions strip the ``text_model.`` prefix from the
+    # exported CLIP text-encoder state dict. Add it back so our wrapper loads strictly.
+    if not any(k.startswith("text_model.") for k in hf_sd):
+        hf_sd = {f"text_model.{k}": v for k, v in hf_sd.items()}
+    my_clip.load_state_dict(hf_sd, strict=True)
     my_clip.eval()
 
     tokenizer = CLIPTokenizerWrapper(pipe.tokenizer, max_length=77)

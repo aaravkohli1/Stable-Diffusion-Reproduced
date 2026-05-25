@@ -1,28 +1,27 @@
 <h1 align="center">UTMIST / Stable Diffusion</h1>
 
+<p align="center">
+    <a href="https://aaravkohli1.github.io/Stable-Diffusion-Reproduced/"><strong>Project Website</strong></a> ·
+    <a href="https://aaravkohli1.github.io/Stable-Diffusion-Reproduced/research.html"><strong>Implementation</strong></a> ·
+    <a href="#inference">Inference</a> ·
+    <a href="#training">Training</a>
+</p>
 
 <p align="center">
-    <a href="#"><strong>Pretrained Weights</strong></a> · 
-    <a href="https://aaravkohli1.github.io/Stable-Diffusion-Reproduced/"><strong>Project Website</strong></a> · 
-    <a href="#"><strong>Technical Report</strong></a> 
-</p> 
-
-<p align="center"> 
-    <img src="https://img.shields.io/badge/Framework-PyTorch%202.1%2B-red" /> 
-    <img src="https://img.shields.io/badge/Model-Diffusion-blue" /> 
-    <img src="https://img.shields.io/badge/License-MIT-yellow" /> 
-    <img src="https://img.shields.io/badge/Status-Active%20Project-brightgreen" />
+    <img src="https://img.shields.io/badge/Framework-PyTorch%202.11-red" />
+    <img src="https://img.shields.io/badge/Model-Latent%20Diffusion-blue" />
+    <img src="https://img.shields.io/badge/License-MIT-yellow" />
 </p>
+
+A from-scratch reimplementation of Stable Diffusion by the University of Toronto Machine Intelligence Student Team. Includes a working VAE / U-Net / CLIP-text stack, five samplers (DDPM, DDIM, Euler-Ancestral, Heun, DPM-Solver++ 2M), four β schedules, classifier-free guidance with the rescale fix, and a weights-converter that loads official SD 1.4 checkpoints into our modules.
 
 ## Quick Links
 
 - [Installation](#installation)
-- [File Structure](#file-structure)
+- [Inference](#inference)
 - [Training](#training)
-- [Model Architecture](#model-architecture)
-- [Ablations](#ablations)
-- [Fine Tuning Experiments](#fine-tuning-experiments)
-- [Dataset](#data)
+- [Datasets](#datasets)
+- [File Structure](#file-structure)
 
 ## Installation
 
@@ -30,103 +29,65 @@
 git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced
 cd Stable-Diffusion-Reproduced
 pip install -r requirements.txt
+# for loading pretrained SD 1.4 weights:
+pip install diffusers transformers accelerate safetensors
 ```
 
-## File Structure
+A CUDA-enabled PyTorch build is strongly recommended.
 
+## Inference
 
+Generate a 512×512 image using the official SD 1.4 weights loaded through our modules:
+
+```bash
+python -m models.generate \
+    --prompt "a corgi sitting in a meadow of wildflowers" \
+    --from-pretrained CompVis/stable-diffusion-v1-4 \
+    --sampler dpm_pp_2m --steps 25 --guidance-scale 7.5 --karras \
+    --output corgi.png
 ```
-Stable-Diffusion-Reproduced/                                                     
-  ├── .gitignore                                                                                                                                      
-  ├── LICENSE                                                                                                                                         
-  ├── README.md                                                                                                                                       
-  ├── requirements.txt                                                                                                                                
-  │                                                                                                                                                   
-  ├── data/                                                                                                               
-  │   ├── __init__.py
-  │   ├── dataset.py
-  │   └── preprocessing.py
-  │
-  ├── diffusion/
-  │   ├── __init__.py
-  │   ├── diffuser.py
-  │   ├── noise_schedules.py
-  │   └── sampling.py
-  │
-  ├── docs/
-  │   ├── index.html
-  │   ├── license.html
-  │   ├── research.html
-  │   └── style.css
-  │
-  ├── models/
-  │   ├── clip/
-  │   │   ├── __init__.py
-  │   │   ├── clip_text_model.py
-  │   │   ├── hf_clip_text.py
-  │   │   ├── text_encoder.py
-  │   │   ├── tokenizer.py
-  │   │   └── transformer.py
-  │   ├── unet/
-  │   │   └── __init__.py
-  │   └── vae/
-  │       ├── __init__.py
-  │       └── VAE.ipynb
-  │
-  └── tests/
-      ├── __init__.py
-      └── test_clip_smoke.py
+
+The script supports five samplers (`ddpm`, `ddim`, `euler_a`, `heun`, `dpm_pp_2m`), CFG-rescale (`--cfg-rescale 0.7`), the Karras σ schedule (`--karras`), and four β schedules (`linear`, `scaled_linear`, `cosine`, `quadratic`). Pass `--vae-ckpt` / `--unet-ckpt` to load your own trained weights instead.
+
+To batch-render the showcase grid that powers the project website:
+
+```bash
+python -m runs.batch_generate --out docs/assets
 ```
 
 ## Training
 
-Training this model is done in several parts. To start, the variational autoencoder (VAE) must be trained as the U-Net operates within its latent space. The U-Net is then trained after, using the VAEs latents on the forward pass.
+Training proceeds in three stages: cache latents and text embeddings, train the VAE, then train the U-Net on cached latents.
 
-Note that for each U-Net training iteration, the VAE must compute the latent, and CLIP must compute the text embedding. Thus, one method for reducing memory usage and speeding up training is to precompute these values.
-
-Scripts for precomputing key values, training the VAE, and training the U-Net can be run as follows.
-
-> IMPORTANT NOTE: The University of Toronto Machine Intelligence Student Team is sponsored by Tenstorrent, thus inference scripts for the VAE and U-Net are written for these GPUs specifically.
-
-### Precompute Latents
+### 1. Precompute latents and text embeddings
 
 ```bash
-git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced
-cd Stable-Diffusion-Reproduced
-pip install -r requirements.txt
-python runs/compute_latents.py
+python -m runs.compute_latents \
+    --out runs/latent_cache --num-samples 5000 --image-size 256 \
+    --vae-ckpt runs/checkpoints/vae_final.pt
 ```
 
-### Train VAE
+Use `--testing` to run against the CIFAR-10 wrapper for a fast end-to-end smoke check (no network shards required).
+
+### 2. Train the VAE
 
 ```bash
-git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced
-cd Stable-Diffusion-Reproduced
-pip install -r requirements.txt
-python runs/train_vae.py
+python -m runs.train_vae
 ```
-### Train U-Net
+
+Trains the VAE on `DiffusionDataset`, saving checkpoints into `runs/checkpoints/`. Hyperparameters live at the top of the script.
+
+### 3. Train the U-Net
 
 ```bash
-git clone https://github.com/aaravkohli1/Stable-Diffusion-Reproduced
-cd Stable-Diffusion-Reproduced
-pip install -r requirements.txt
-python runs/train_unet.py
+python -m runs.train_unet configs/unet_base.yaml
 ```
 
+`configs/unet_base.yaml` selects the model dims, β schedule (`linear` / `cosine` / `quadratic`), batch size, learning rate, and logging cadence. The dataset reads cached `(latents, conds)` pairs from step 1.
 
+## Datasets
 
-## Model Architecture
-
-## Ablations
-
-## Fine Tuning Experiments
-
-
-
-## Dataset
-
-We use the **LAION aesthetics dataset** for training the individual models, and a **CIFAR-10 Wrapper** for testing inference and training during development. The dataset may be toggled via the `testing` parameter within the `DiffusionDataset` abstraction. For this project, we fine tune on axonometric data specifically. Thus an `FTDataset` abstraction for loading these images is also provided. This is shown below.
+`DiffusionDataset` streams a LAION-style synthetic high-quality captions shard set, or a CIFAR-10 wrapper for smoke tests when `testing=True`. `FTDataset` reads a local image folder.
 
 ### Full Dataset
 
@@ -134,10 +95,8 @@ We use the **LAION aesthetics dataset** for training the individual models, and 
 from data import DiffusionDataset
 from torch.utils.data import DataLoader
 
-dataset = DiffusionDataset(testing=False)
+dataset = DiffusionDataset(testing=False, image_size=512)
 loader = DataLoader(dataset, batch_size=4)
-
-...
 ```
 
 ### Testing Data
@@ -146,22 +105,42 @@ loader = DataLoader(dataset, batch_size=4)
 from data import DiffusionDataset
 from torch.utils.data import DataLoader
 
-dataset = DiffusionDataset(testing=True, num_test_samples=10)
+dataset = DiffusionDataset(testing=True, num_test_samples=100, image_size=256)
 loader = DataLoader(dataset, batch_size=4)
-
-...
 ```
 
-### Fine-Tuning Data
+### Local Image Folder
+
 ```python
 from data import FTDataset
 from torch.utils.data import DataLoader
 
-dataset = FTDataset(num_test_samples=10)
+dataset = FTDataset(root="my_images", image_size=512)
 loader = DataLoader(dataset, batch_size=4)
-
-...
 ```
 
+## File Structure
 
-
+```
+Stable-Diffusion-Reproduced/
+├── data/                  # DiffusionDataset + FTDataset, preprocessing
+├── diffusion/             # forward process, β schedules, samplers
+├── docs/                  # project website (GitHub Pages)
+├── models/
+│   ├── clip/              # tokenizer + transformer text encoder
+│   ├── unet.py            # U-Net backbone
+│   ├── unet_attention.py  # cross/self-attention blocks
+│   ├── vae.py             # VAE encoder/decoder
+│   ├── convert_weights.py # diffusers → our state_dict mapping
+│   └── generate.py        # text-to-image inference entrypoint
+├── runs/
+│   ├── compute_latents.py # cache VAE + CLIP outputs
+│   ├── train_vae.py
+│   ├── train_unet.py
+│   └── batch_generate.py  # showcase grid renderer
+├── utils/                 # FID, attention-map visualization
+├── tests/                 # CLIP smoke, CFG, flash-attn, attn-visual
+├── LICENSE
+├── README.md
+└── requirements.txt
+```

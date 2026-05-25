@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Research & Insights</title>
+    <title>Implementation — UTMIST / Stable Diffusion</title>
     <link rel="icon" type="image/svg" href="assets/utmist_logo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -21,11 +21,11 @@
       <nav>
         <a class="nav-logo" href="index.html">UTMIST / Stable Diffusion</a>
         <ul class="nav-links">
-          <li><a href="index.html#results">Results</a></li>
+          <li><a href="index.html#results">Pipeline</a></li>
           <li><a href="index.html#team">Team</a></li>
           <li>
             <a href="research.html" style="color: var(--black)"
-              >Research & Insights</a
+              >Implementation</a
             >
           </li>
           <li>
@@ -39,12 +39,132 @@
       </nav>
 
       <div class="research-hero">
-        <p class="hero-tag">Research & Insights</p>
-        <h1>Ablations &amp;<br />Observations.</h1>
+        <p class="hero-tag">Implementation</p>
+        <h1>How it's<br />put together.</h1>
         <p>
-          Findings from our implementation and experiments will appear here as
-          they run.
+          A short tour of the moving parts. Each module is written from
+          scratch, lives in its own file, and shares a single interface so
+          components are interchangeable.
         </p>
+      </div>
+    </div>
+
+    <div class="section">
+      <p class="section-label">Components</p>
+      <h2>The stack.</h2>
+      <p class="section-sub">
+        Three trainable networks and a forward-process module. The weight
+        converter lets us load official Stable Diffusion 1.4 checkpoints into
+        the same classes used for training.
+      </p>
+      <div class="findings-grid">
+        <div class="finding-card">
+          <div class="finding-label">VAE</div>
+          <div class="finding-title">Encoder, decoder, KL bottleneck.</div>
+          <div class="finding-body">
+            A convolutional encoder/decoder pair with a Gaussian latent
+            bottleneck. The U-Net operates entirely in this latent space, so
+            the VAE is the bridge between pixel-space images and the diffusion
+            target.
+          </div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">U-Net</div>
+          <div class="finding-title">Configurable backbone with cross-attention.</div>
+          <div class="finding-body">
+            Residual blocks at four resolutions, cross-attention layers
+            consuming text embeddings, and a flash-attention path. Channel
+            multipliers, attention levels, and head counts are all set from a
+            config dict.
+          </div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">CLIP text encoder</div>
+          <div class="finding-title">Tokenizer + transformer, our wrapper.</div>
+          <div class="finding-body">
+            A CLIP text transformer with our own tokenizer wrapper that
+            matches the HuggingFace state-dict layout, so pretrained text
+            encoders drop in without modification.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <p class="section-label">Sampling</p>
+      <h2>Solvers &amp; schedules.</h2>
+      <p class="section-sub">
+        Inference is decoupled from training. The same trained U-Net runs under
+        any sampler/schedule combination, exposed as command-line flags on
+        <code>models/generate.py</code>.
+      </p>
+      <div class="findings-grid">
+        <div class="finding-card">
+          <div class="finding-label">Samplers</div>
+          <div class="finding-title">DDPM · DDIM · Euler-A · Heun · DPM++ 2M.</div>
+          <div class="finding-body">
+            Stochastic and deterministic options behind one interface. Each
+            takes the U-Net, the noise schedule, a target shape, and a step
+            count.
+          </div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">β schedules</div>
+          <div class="finding-title">Linear, scaled-linear, cosine, quadratic.</div>
+          <div class="finding-body">
+            Selected per run. The Karras σ schedule can be layered on top for
+            samplers that operate in σ-space, shifting more compute toward the
+            low-noise end.
+          </div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">Guidance</div>
+          <div class="finding-title">CFG with optional rescale.</div>
+          <div class="finding-body">
+            Classifier-free guidance with the rescale trick from Lin et al.
+            (2024) as a single flag, to recover dynamic range at high guidance
+            scales without giving up prompt adherence.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <p class="section-label">Training</p>
+      <h2>Three-stage loop.</h2>
+      <p class="section-sub">
+        The VAE and CLIP encoders only need to be evaluated once per image.
+        Caching their outputs to disk leaves the U-Net step UNet-bound on a
+        single consumer GPU.
+      </p>
+      <div class="findings-grid">
+        <div class="finding-card">
+          <div class="finding-label">1 · Precompute</div>
+          <div class="finding-title">Cache latents and embeddings.</div>
+          <div class="finding-body">
+            <code>runs/compute_latents.py</code> writes
+            <code>(latents, conds)</code> tensors per sample. Re-used across
+            every training run after.
+          </div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">2 · Train VAE</div>
+          <div class="finding-title">Reconstruction + KL.</div>
+          <div class="finding-body">
+            <code>runs/train_vae.py</code> trains the bottleneck against a
+            weighted MSE + KL objective. Hyperparameters live at the top of
+            the script.
+          </div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-label">3 · Train U-Net</div>
+          <div class="finding-title">YAML-configured, latent-space.</div>
+          <div class="finding-body">
+            <code>runs/train_unet.py</code> consumes cached pairs and steps
+            the U-Net against the diffusion objective. β schedule, model
+            dims, and logging cadence are set in a config file.
+          </div>
+        </div>
       </div>
     </div>
 

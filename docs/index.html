@@ -22,9 +22,8 @@
         <a class="nav-logo" href="index.html">UTMIST / Stable Diffusion</a>
         <ul class="nav-links">
           <li><a href="#about">About</a></li>
-          <li><a href="#results">Results</a></li>
+          <li><a href="research.html">Implementation</a></li>
           <li><a href="#team">Team</a></li>
-          <li><a href="research.html">Research & Insights</a></li>
           <li>
             <a
               href="https://github.com/aaravkohli1/Stable-Diffusion-Reproduced"
@@ -40,10 +39,8 @@
           <p class="hero-tag">UTMIST · 2025–2026</p>
           <h1>Stable Diffusion,<br />Reproduced.</h1>
           <p>
-            A from-scratch reimplementation of Stable Diffusion with systematic
-            ablation studies, performance and efficiency benchmarking, and fine
-            tuning experiments by the University of Toronto Machine Intelligence
-            Student Team.
+            A from-scratch reimplementation of Stable Diffusion in PyTorch by
+            the University of Toronto Machine Intelligence Student Team.
           </p>
           <div>
             <a
@@ -57,22 +54,18 @@
         </div>
         <div class="hero-visual">
           <div class="hero-preview-grid">
-            <div class="preview-cell">
-              <img src="./assets/desert.png" alt="An image of a desert" />
-            </div>
-            <div class="preview-cell">
-              <img src="./assets/dog.png" alt="An image of a desert" />
-            </div>
-            <div class="preview-cell"></div>
-            <div class="preview-cell"></div>
-            <div class="preview-cell"></div>
-            <div class="preview-cell"></div>
-            <div class="preview-cell"></div>
-            <div class="preview-cell"></div>
-            <div class="preview-cell"></div>
+            <div class="preview-cell"><img src="./assets/desert.png" alt="generated desert at golden hour" /></div>
+            <div class="preview-cell"><img src="./assets/dog.png" alt="generated corgi in meadow" /></div>
+            <div class="preview-cell"><img src="./assets/forest.png" alt="generated misty pine forest" /></div>
+            <div class="preview-cell"><img src="./assets/city.png" alt="generated neon Tokyo street" /></div>
+            <div class="preview-cell"><img src="./assets/mountain.png" alt="generated alpine sunrise" /></div>
+            <div class="preview-cell"><img src="./assets/ocean.png" alt="generated ocean wave" /></div>
+            <div class="preview-cell"><img src="./assets/portrait.png" alt="generated studio portrait" /></div>
+            <div class="preview-cell"><img src="./assets/interior.png" alt="generated minimalist interior" /></div>
+            <div class="preview-cell"><img src="./assets/astronaut.png" alt="generated astronaut on pink planet" /></div>
           </div>
           <p class="hero-visual-label">
-            generated samples · training in progress
+            samples from our pipeline · SD 1.4 weights, DPM-Solver++ 2M, 25 steps
           </p>
         </div>
       </div>
@@ -80,54 +73,24 @@
 
     <div class="section" id="about">
       <p class="section-label">About</p>
-      <h2>What we're working on.</h2>
+      <h2>What we built.</h2>
       <div class="about-body">
         <p>
-          Diffusion models have emerged as a popular model for image and video
-          synthesis due to its to model complex, high-dimensional data through
-          an iterative denoising process.
+          Diffusion models have emerged as a popular approach for image and
+          video synthesis because of their ability to model complex,
+          high-dimensional data through an iterative denoising process.
         </p>
         <p>
-          We are systematically recreating Stable Diffusion from the ground up,
-          and running targeted ablation experiments to identify which
-          architectural components, training choices, and conditioning
-          mechanisms most strongly impact performance, stability, and generation
-          quality.
+          We recreated Stable Diffusion from the ground up in PyTorch: the VAE,
+          the U-Net, the CLIP text encoder, the forward process, and five
+          samplers.
         </p>
         <p>
-          Building on this, we will then fine-tune our model on axonometric data
-          to test whether controlled training can encode stronger spatial
-          reasoning, consistent perspective, and improve geometric coherence in
-          generated scenes. Coupled with the ablation experiments, we aim to
-          gain a deep understanding of diffusion architectures and provide
-          insights into building state of the art models.
+          The samples on this page were rendered end to end through our own
+          code, using converted Stable Diffusion 1.4 weights. The
+          <a href="research.html" style="color: var(--black); border-bottom: 1px solid var(--border)">implementation page</a>
+          walks through each module.
         </p>
-      </div>
-    </div>
-
-    <div class="section" id="results">
-      <p class="section-label">Key Insights</p>
-      <h2>Top findings.</h2>
-      <p class="section-sub">
-        Our three most significant results from implementation and ablation.
-        Updated as experiments complete.
-      </p>
-      <div class="findings-grid">
-        <div class="finding-card">
-          <div class="finding-label">—</div>
-          <div class="finding-title">—</div>
-          <div class="finding-body">—</div>
-        </div>
-        <div class="finding-card">
-          <div class="finding-label">—</div>
-          <div class="finding-title">—</div>
-          <div class="finding-body">—</div>
-        </div>
-        <div class="finding-card">
-          <div class="finding-label">—</div>
-          <div class="finding-title">—</div>
-          <div class="finding-body">—</div>
-        </div>
       </div>
     </div>
 
